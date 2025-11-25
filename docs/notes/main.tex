@@ -23,7 +23,7 @@
 \newcommand{\mat}[1]{\mathbf{#1}}
 \newcommand{\hess}[1]{\vc{\nabla}^2 f(\vc{#1})}
 
-\title{nla hw05}
+\title{industrial p02 notes}
 \author{cs}
 
 \begin{document}
@@ -60,5 +60,43 @@ The simulation evolves through two coupled dynamic processes:
     maximizes cultural similarity with neighbors (Schelling mechanism) and
     proximity to preferred facilities.
 \end{enumerate}
+
+\section{Entropy implementation}
+To quantify segregation, we measure how ``mixed'' each neighbourhood is.
+Let $i$ index a habitable cell, and let $N(i)$ be a square window of radius
+$r$ around $i$.  Within this window, we compute the local proportions of the
+two groups $g\in\{0,1\}$:
+\[
+p_{i,g}=\frac{\#\{j\in N(i):\text{group}(j)=g\}}{\#N(i)}.
+\]
+If a neighbourhood is fully mixed, these proportions are close to $1/2$; if
+it is segregated, one of them is close to $1$ and the other close to $0$.
+
+To convert these proportions into a single measure of ``local disorder'', we
+use the Shannon entropy:
+\[
+H_i=-\sum_{g}p_{i,g}\,\ln p_{i,g}, \qquad 0\ln 0:=0.
+\]
+Entropy is maximised when both groups are equally present, and minimised
+when one group dominates.  For two groups, the maximum entropy is $\ln 2$,
+so we define a normalised entropy:
+\[
+\tilde H_i=\frac{H_i}{\ln 2}\in[0,1].
+\]
+Here $\tilde H_i\approx 1$ means a well-mixed neighbourhood, while
+$\tilde H_i\approx 0$ indicates homogeneity.
+
+To obtain a city-wide measure, we average $\tilde H_i$ over all habitable
+cells $\mathcal H$:
+\[
+\tilde H_{\text{mean}}=\frac{1}{|\mathcal H|}\sum_{i\in\mathcal H}\tilde H_i.
+\]
+Finally, because segregation corresponds to *low* entropy, we define the
+segregation index
+\[
+S=1-\tilde H_{\text{mean}}, \qquad S\in[0,1].
+\]
+Thus $S=0$ denotes a perfectly mixed configuration, while $S=1$ denotes a
+perfectly segregated configuration.
 
 \end{document}

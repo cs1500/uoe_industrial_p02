@@ -1,8 +1,8 @@
-PWD /home/cs/Study/UoE/masters_cam/Industrial Mathematics (MATH11231)/P02/notes
+PWD /home/cs/gitrepos/uoe_industrial_p02/docs/notes
 INPUT /usr/share/texlive/texmf-dist/web2c/texmf.cnf
 INPUT /usr/share/texlive/texmf-dist/web2c/texmf.cnf
 INPUT /var/lib/texmf/web2c/pdftex/pdflatex.fmt
-INPUT /home/cs/Study/UoE/masters_cam/Industrial Mathematics (MATH11231)/P02/notes/main.tex
+INPUT /home/cs/gitrepos/uoe_industrial_p02/docs/notes/main.tex
 OUTPUT build/main.log
 INPUT /usr/share/texlive/texmf-dist/tex/latex/base/article.cls
 INPUT /usr/share/texlive/texmf-dist/tex/latex/base/article.cls
