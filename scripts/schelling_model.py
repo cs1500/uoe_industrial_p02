@@ -114,7 +114,8 @@ class SchellingModel:
     def frac_similar(self, i: int, j: int) -> float:
         """
         Fraction of neighbouring agents that are of the same type. Right now
-        this only computes for one abstract class, `a`.
+        this only computes for one abstract class, `a`. WE CAN DO pnorm similarity
+        for multiple attributes!
         """
         a = self.agent_grid[i, j]
         if a == 0: 
