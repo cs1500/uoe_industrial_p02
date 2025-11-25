@@ -99,4 +99,75 @@ S=1-\tilde H_{\text{mean}}, \qquad S\in[0,1].
 Thus $S=0$ denotes a perfectly mixed configuration, while $S=1$ denotes a
 perfectly segregated configuration.
 
+\newpage
+
+\textbf{Implementation summary of $sch_{002}$}
+
+\section{Environment Initialization}
+The simulation environment is discretized into an $N \times M$ grid 
+($100 \times 100$), represented by variables \texttt{N} and \texttt{M}. Each 
+cell is classified via a \texttt{city\_mask} as \texttt{RESIDENTIAL}, 
+\texttt{PARK}, \texttt{AMENITY}, or \texttt{EMPTY}.
+
+\subsection{Topology Generation}
+The map topology approximates Edinburgh using vectorized geometric constraints. 
+Parks are defined by boolean unions of rotated ellipses:
+\begin{equation}
+    \left(\frac{x'}{r_x}\right)^2 + \left(\frac{y'}{r_y}\right)^2 \leq 1
+\end{equation}
+implemented in the helper \texttt{rotated\_oval}. Roads are defined by linear 
+inequalities. Static amenity scores ($A_{i,j}$) are precomputed by convolving 
+binary amenity locations with an inverse-distance kernel $K(d) = (1+d)^{-1}$, 
+stored in \texttt{amenity\_scores}.
+
+\subsection{Agent Properties}
+Habitable cells are populated with agents possessing:
+\begin{itemize}
+    \item \textbf{Income ($I$):} Drawn from \texttt{INCOME\_VALUES} 
+    $\{0.1, 0.5, 1.0\}$ with probability distribution \texttt{INCOME\_PROBS}.
+    \item \textbf{Group ($g$):} Binary classification stored in 
+    \texttt{groups}, initialized with a 70/30 split.
+    \item \textbf{Price ($P$):} Initialized proportional to income plus 
+    Gaussian noise, stored in \texttt{prices}.
+\end{itemize}
+
+\section{System Dynamics}
+The simulation proceeds for \texttt{NUM\_STEPS} iterations. Each step involves 
+economic updates and agent relocation attempts.
+
+\subsection{Price Evolution}
+Housing prices evolve based on intrinsic agent income and the average price of 
+the Moore neighborhood ($\mathcal{N}$). The update rule in 
+\texttt{update\_prices} is:
+\begin{equation}
+    P_{t+1} = P_t + I + \lambda \cdot \langle P \rangle_{\mathcal{N}}
+\end{equation}
+where $\lambda$ corresponds to \texttt{LAMBDA\_PRICE} ($0.01$). This simulates 
+gentrification where high-income neighbors drive up local property values.
+
+\subsection{Agent Relocation (Swaps)}
+In \texttt{attempt\_moves}, we randomly sample pairs of agents at locations 
+$x$ and $y$. A swap occurs if the utility change is favorable. The utility 
+change $\Delta U$ considers financial, amenity, and social factors.
+
+The financial incentive ($\Delta M$), stored as \texttt{d\_money}, prevents 
+poorer agents from moving to expensive areas:
+\begin{equation}
+    \Delta M = 2 (P_x - P_y)(I_x - I_y)
+\end{equation}
+Amenity gain is the difference in static scores $A$. The social score $H$ 
+(homophily) is the fraction of similar neighbors, calculated via 
+\texttt{get\_social\_score}. A swap is executed if financial feasibility is 
+met ($\Delta M > -500$) and the combined utility increases.
+
+\section{Metrics: Segregation Entropy}
+Segregation is measured using spatial Shannon entropy in 
+\texttt{segregation\_entropy}. For a local neighborhood with proportion $p$ of 
+group 1, the local entropy is:
+\begin{equation}
+    H_{local} = - \sum_{g \in \{0,1\}} p_g \log_2(p_g)
+\end{equation}
+The global segregation index $S$ is defined as $1 - \bar{H}_{local}$, where 
+$\bar{H}$ is the mean entropy over habitable cells.
+
 \end{document}

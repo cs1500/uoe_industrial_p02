@@ -13,7 +13,7 @@ np.random.seed(42)
 # ==========================================
 N, M = 100, 100
 HOUSE_RANGE = 5
-NUM_STEPS = 100          # Increased steps to see convergence better
+NUM_STEPS = 800          # Increased steps to see convergence better
 SWAPS_PER_STEP = 5000    
 LAMBDA_PRICE = 0.01      
 
