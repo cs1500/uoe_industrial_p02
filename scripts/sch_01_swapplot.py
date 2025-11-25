@@ -86,62 +86,6 @@ def precompute_amenity_scores(city_mask, influence_range=5):
     score_map = convolve(amenity_locs.astype(float), kernel, mode='constant')
     return score_map / score_map.max()
 
-def segregation_entropy(groups, habitable_mask, radius=2):
-    """
-    Compute an entropy-based segregation measure.
-
-    Parameters
-    ----------
-    groups : (N, M) int array
-        Group labels (e.g. 0, 1) on the grid.
-    habitable_mask : (N, M) bool array
-        True where houses can exist (RESIDENTIAL).
-    radius : int
-        Neighborhood radius (in cells) to use.
-
-    Returns
-    -------
-    segregation_index : float
-        1 - mean(normalised local entropy) over habitable cells.
-        0 ~ very mixed, 1 ~ very segregated.
-    H_local : (N, M) float array
-        Local normalised entropy per cell (0..1), for inspection.
-    """
-    N, M = groups.shape
-    size = 2 * radius + 1
-
-    # Kernel for local neighbourhood (optionally exclude self)
-    kernel = np.ones((size, size), dtype=float)
-    # kernel[radius, radius] = 0  # uncomment to exclude the centre cell
-
-    # 1. Count habitable neighbours
-    neigh_hab = convolve(habitable_mask.astype(float), kernel,
-                         mode='constant', cval=0.0)
-
-    # Avoid division by zero
-    neigh_hab_safe = neigh_hab.copy()
-    neigh_hab_safe[neigh_hab_safe == 0] = 1.0
-
-    # 2. Count neighbours of each group (here just group 1; group 0 is the rest)
-    g1 = ((groups == 1) & habitable_mask).astype(float)
-    neigh_g1 = convolve(g1, kernel, mode='constant', cval=0.0)
-
-    # Local proportions
-    p1 = neigh_g1 / neigh_hab_safe
-    p0 = 1.0 - p1
-
-    # 3. Shannon entropy per cell (in bits, normalised 0..1)
-    eps = 1e-12
-    H = -(p0 * np.log(p0 + eps) + p1 * np.log(p1 + eps))
-    H_norm = H / np.log(2.0)  # max entropy for 2 groups is log(2)
-
-    # 4. Average over habitable cells only
-    H_mean = H_norm[habitable_mask].mean()
-
-    # Segregation index: 1 - mixedness
-    S = 1.0 - H_mean
-    return S, H_norm
-
 # ==========================================
 # 4. INITIALIZATION
 # ==========================================
@@ -229,7 +173,7 @@ def attempt_moves(incomes, prices, groups, amenity_scores, habitable_mask, n_att
 # ==========================================
 # 6. MAIN SCRIPT
 # ==========================================
-def _run_simulation():
+def run_simulation():
     print("Generating Map...")
     city_map = create_fast_edinburgh_map(N, M)
     amenity_scores = precompute_amenity_scores(city_map)
@@ -255,40 +199,10 @@ def _run_simulation():
 
     return city_map, initial_incomes, incomes, swap_history
 
-def run_simulation():
-    print("Generating Map...")
-    city_map = create_fast_edinburgh_map(N, M)
-    amenity_scores = precompute_amenity_scores(city_map)
-    
-    print("Initializing Agents...")
-    incomes, prices, groups, habitable = initialize_grid(city_map)
-    
-    initial_incomes = incomes.copy()
-    
-    swap_history = []
-    seg_history = []  # NEW: segregation history
-    
-    print(f"Starting Simulation ({NUM_STEPS} steps)...")
-    for t in range(NUM_STEPS):
-        prices = update_prices(prices, incomes, habitable)
-        incomes, groups, swaps = attempt_moves(
-            incomes, prices, groups, amenity_scores, habitable, n_attempts=SWAPS_PER_STEP
-        )
-        swap_history.append(swaps)
-
-        # Compute segregation after moves
-        S, _ = segregation_entropy(groups, habitable, radius=2)
-        seg_history.append(S)
-
-        if t % 10 == 0:
-            print(f"Step {t}: Swaps = {swaps}, Segregation = {S:.3f}")
-
-    return city_map, initial_incomes, incomes, swap_history, seg_history
-
 # ==========================================
 # 7. PLOTTING
 # ==========================================
-def _plot_results(city_map, init_inc, final_inc, swap_history):
+def plot_results(city_map, init_inc, final_inc, swap_history):
     mask_static = (city_map == PARK) | (city_map == EMPTY)
     
     # Color settings
@@ -330,50 +244,6 @@ def _plot_results(city_map, init_inc, final_inc, swap_history):
     
     plt.show()
 
-def plot_results(city_map, init_inc, final_inc, swap_history, seg_history):
-    mask_static = (city_map == PARK) | (city_map == EMPTY)
-    
-    cmap = colors.ListedColormap(['lightgrey', '#6126b4', '#ffcc00', '#0099ff'])
-    bounds = [0, 0.05, 0.2, 0.8, 1.5]
-    norm = colors.BoundaryNorm(bounds, cmap.N)
-    
-    # 1. SEGREGATION MAPS (by income, as you had)
-    fig1, axes = plt.subplots(1, 2, figsize=(12, 6), constrained_layout=True)
-    
-    def prep_img(inc_grid):
-        disp = inc_grid.copy()
-        disp[mask_static] = 0.0
-        return disp
-
-    im1 = axes[0].imshow(prep_img(init_inc), cmap=cmap, norm=norm)
-    axes[0].set_title("Initial Segregation (T=0)")
-    axes[0].axis('off')
-    
-    im2 = axes[1].imshow(prep_img(final_inc), cmap=cmap, norm=norm)
-    axes[1].set_title(f"Final Segregation (T={NUM_STEPS})")
-    axes[1].axis('off')
-    
-    cbar = fig1.colorbar(im1, ax=axes, orientation='horizontal',
-                         fraction=0.05, pad=0.05, aspect=40)
-    cbar.set_ticks([0.12, 0.5, 1.1])
-    cbar.set_ticklabels(['Poor', 'Middle', 'Rich'])
-    
-    plt.suptitle("Schelling Segregation on Edinburgh Topology", fontsize=16)
-    
-    # 2. SWAPS VS TIME
-    fig2, ax2 = plt.subplots(figsize=(8, 4))
-    ax2.plot(range(len(swap_history)), swap_history, linewidth=2)
-    ax2.set_title("Agent Swaps over Time")
-    ax2.set_xlabel("Time Step (Price Update Iteration)")
-    ax2.set_ylabel("Number of Swaps Performed")
-    ax2.grid(True, linestyle='--', alpha=0.6)
-
-    # 3. ENTROPY-BASED SEGREGATION VS TIME
-    fig3, ax3 = plt.subplots(figsize=(8, 4))
-    ax3.plot(range(len(seg_history)), seg_history, linewidth=2)
-    ax3.set_title("Entropy-based Segregation Index over Time")
-    ax3.set_xlabel("Time Step (Price Update Iteration)")
-    ax3.set_ylabel("Segregation Index (0 = mixed, 1 = segregated)")
-    ax3.grid(True, linestyle='--', alpha=0.6)
-    
-    plt.show()
+if __name__ == "__main__":
+    city, start_inc, end_inc, swaps = run_simulation()
+    plot_results(city, start_inc, end_inc, swaps)
